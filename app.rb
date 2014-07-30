@@ -1,6 +1,8 @@
 require "sinatra"
 require "gschool_database_connection"
 require "rack-flash"
+require "./lib/fish"
+require "./lib/user"
 
 class App < Sinatra::Application
   enable :sessions
@@ -16,7 +18,8 @@ class App < Sinatra::Application
 
     if current_user
       users = @database_connection.sql("SELECT * FROM users WHERE id != #{user["id"]}")
-      fish = @database_connection.sql("SELECT * FROM fish WHERE user_id = #{current_user["id"]}")
+      # users = User.where(id: user['id']) #need to figure out how to do !=
+      fish = Fish.where(user_id: "#{current_user["id"]}")
       erb :signed_in, locals: {current_user: user, users: users, fish_list: fish}
     else
       erb :signed_out
@@ -28,17 +31,23 @@ class App < Sinatra::Application
   end
 
   post "/registrations" do
-    if validate_registration_params
-      insert_sql = <<-SQL
-      INSERT INTO users (username, password)
-      VALUES ('#{params[:username]}', '#{params[:password]}')
-      SQL
-
-      @database_connection.sql(insert_sql)
-
+    # if validate_registration_params
+    #   insert_sql = <<-SQL
+    #   INSERT INTO users (username, password)
+    #   VALUES ('#{params[:username]}', '#{params[:password]}')
+    #   SQL
+    #
+    #   @database_connection.sql(insert_sql)
+    #
+    #   flash[:notice] = "Thanks for registering"
+    #   redirect "/"
+    potential_user = User.create(username: params[:username], password: params[:password])
+    if potential_user.valid?
+      potential_user
       flash[:notice] = "Thanks for registering"
       redirect "/"
     else
+      flash[:notice] = potential_user.errors.messages
       erb :register
     end
   end
