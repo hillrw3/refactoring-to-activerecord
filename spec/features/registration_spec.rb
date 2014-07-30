@@ -26,7 +26,6 @@ feature "Registration and authentication" do
     click_button "Sign In"
 
     expect(page).to have_content "Username is required, Password is required"
-
     fill_in "Username", with: "hoonta"
     click_button "Sign In"
 
