@@ -17,8 +17,7 @@ class App < Sinatra::Application
     user = current_user
 
     if current_user
-      users = @database_connection.sql("SELECT * FROM users WHERE id != #{user["id"]}")
-      # users = User.where(id: user['id']) #need to figure out how to do !=
+      users = User.all.where.not(id: user["id"]) 
       fish = Fish.where(user_id: "#{current_user["id"]}")
       erb :signed_in, locals: {current_user: user, users: users, fish_list: fish}
     else
@@ -31,16 +30,6 @@ class App < Sinatra::Application
   end
 
   post "/registrations" do
-    # if validate_registration_params
-    #   insert_sql = <<-SQL
-    #   INSERT INTO users (username, password)
-    #   VALUES ('#{params[:username]}', '#{params[:password]}')
-    #   SQL
-    #
-    #   @database_connection.sql(insert_sql)
-    #
-    #   flash[:notice] = "Thanks for registering"
-    #   redirect "/"
     potential_user = User.create(username: params[:username], password: params[:password])
     if potential_user.valid?
       potential_user
@@ -54,15 +43,14 @@ class App < Sinatra::Application
 
   post "/sessions" do
     if validate_authentication_params
-      user = authenticate_user
-
+        user = User.where(username: params[:username], password: params[:password]).first
       if user != nil
-        session[:user_id] = user["id"]
+        # p user
+        session[:user_id] = user.id
       else
         flash[:notice] = "Username/password is invalid"
       end
     end
-
     redirect "/"
   end
 
@@ -72,12 +60,7 @@ class App < Sinatra::Application
   end
 
   delete "/users/:id" do
-    delete_sql = <<-SQL
-    DELETE FROM users
-    WHERE id = #{params[:id]}
-    SQL
-
-    @database_connection.sql(delete_sql)
+    User.find(params[:id]).destroy
 
     redirect "/"
   end
@@ -87,18 +70,13 @@ class App < Sinatra::Application
   end
 
   get "/fish/:id" do
-    fish = @database_connection.sql("SELECT * FROM fish WHERE id = #{params[:id]}").first
+    fish = Fish.find(params[:id])
     erb :"fish/show", locals: {fish: fish}
   end
 
   post "/fish" do
     if validate_fish_params
-      insert_sql = <<-SQL
-      INSERT INTO fish (name, wikipedia_page, user_id)
-      VALUES ('#{params[:name]}', '#{params[:wikipedia_page]}', #{current_user["id"]})
-      SQL
-
-      @database_connection.sql(insert_sql)
+      Fish.create(name: params[:name], wikipedia_page: params[:wikipedia_page], user_id: current_user["id"])
 
       flash[:notice] = "Fish Created"
 
@@ -110,31 +88,31 @@ class App < Sinatra::Application
 
   private
 
-  def validate_registration_params
-    if params[:username] != "" && params[:password].length > 3 && username_available?(params[:username])
-      return true
-    end
-
-    error_messages = []
-
-    if params[:username] == ""
-      error_messages.push("Username is required")
-    end
-
-    if !username_available?(params[:username])
-      error_messages.push("Username has already been taken")
-    end
-
-    if params[:password] == ""
-      error_messages.push("Password is required")
-    elsif params[:password].length < 4
-      error_messages.push("Password must be at least 4 characters")
-    end
-
-    flash[:notice] = error_messages.join(", ")
-
-    false
-  end
+  # def validate_registration_params
+  #   if params[:username] != "" && params[:password].length > 3 && username_available?(params[:username])
+  #     return true
+  #   end
+  #
+  #   error_messages = []
+  #
+  #   if params[:username] == ""
+  #     error_messages.push("Username is required")
+  #   end
+  #
+  #   if !username_available?(params[:username])
+  #     error_messages.push("Username has already been taken")
+  #   end
+  #
+  #   if params[:password] == ""
+  #     error_messages.push("Password is required")
+  #   elsif params[:password].length < 4
+  #     error_messages.push("Password must be at least 4 characters")
+  #   end
+  #
+  #   flash[:notice] = error_messages.join(", ")
+  #
+  #   false
+  # end
 
   def validate_fish_params
     if params[:name] != "" && params[:wikipedia_page] != ""
