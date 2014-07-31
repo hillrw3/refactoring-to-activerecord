@@ -21,7 +21,7 @@ class App < Sinatra::Application
       fish = Fish.where(user_id: "#{current_user["id"]}")
       erb :signed_in, locals: {current_user: user, users: users, fish_list: fish}
     else
-      erb :signed_out
+      erb :signed_out, locals: {user: nil}
     end
   end
 
@@ -45,7 +45,6 @@ class App < Sinatra::Application
     if validate_authentication_params
       user = User.where(username: params[:username], password: params[:password]).first
       if user != nil
-        # p user
         session[:user_id] = user.id
       else
         flash[:notice] = "Username/password is invalid"
@@ -54,66 +53,67 @@ class App < Sinatra::Application
     redirect "/"
   end
 
-  delete "/sessions" do
-    session[:user_id] = nil
+delete "/sessions" do
+  session[:user_id] = nil
+  redirect "/"
+end
+
+delete "/users/:id" do
+  User.find(params[:id]).destroy
+
+  redirect "/"
+end
+
+get "/fish/new" do
+  erb :"fish/new"
+end
+
+get "/fish/:id" do
+  fish = Fish.find(params[:id])
+  erb :"fish/show", locals: {fish: fish}
+end
+
+post "/fish" do
+  create_fish = Fish.create(name: params[:name], wikipedia_page: params[:wikipedia_page], user_id: current_user["id"])
+  if create_fish.valid?
+    create_fish
+    flash[:notice] = "Fish Created"
+
     redirect "/"
-  end
-
-  delete "/users/:id" do
-    User.find(params[:id]).destroy
-
-    redirect "/"
-  end
-
-  get "/fish/new" do
+  else
+    flash[:notice] = create_fish.errors.messages
     erb :"fish/new"
   end
+end
 
-  get "/fish/:id" do
-    fish = Fish.find(params[:id])
-    erb :"fish/show", locals: {fish: fish}
+private
+
+def validate_authentication_params
+  if params[:username] != "" && params[:password] != ""
+    return true
   end
 
-  post "/fish" do
-    create_fish = Fish.create(name: params[:name], wikipedia_page: params[:wikipedia_page], user_id: current_user["id"])
-    if create_fish.valid?
-      create_fish
-      flash[:notice] = "Fish Created"
+  error_messages = []
 
-      redirect "/"
-    else
-      flash[:notice] = create_fish.errors.messages
-      erb :"fish/new"
-    end
+  if params[:username] == ""
+    error_messages.push("Username is required")
   end
 
-  private
-
-  def validate_authentication_params
-    if params[:username] != "" && params[:password] != ""
-      return true
-    end
-
-    error_messages = []
-
-    if params[:username] == ""
-      error_messages.push("Username is required")
-    end
-
-    if params[:password] == ""
-      error_messages.push("Password is required")
-    end
-
-    flash[:notice] = error_messages.join(", ")
-
-    false
+  if params[:password] == ""
+    error_messages.push("Password is required")
   end
 
-  def current_user
-    if session[:user_id]
-      User.find(session[:user_id])
-    else
-      nil
-    end
+  flash[:notice] = error_messages.join(", ")
+
+  false
+end
+
+def current_user
+  if session[:user_id]
+    User.find(session[:user_id])
+  else
+    nil
   end
+end
+
 end
